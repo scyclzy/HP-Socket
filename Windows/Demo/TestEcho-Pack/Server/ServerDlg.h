@@ -7,9 +7,11 @@
 
 #include "../../../Src/HPSocket4C.h"
 #include "../../Global/helper.h"
+#include "../../Global/TapTun.h"
 
 // CServerDlg dialog
-class CServerDlg : public CDialogEx
+class CServerDlg : public CDialogEx,
+	public ITapTunListener
 {
 // Construction
 public:
@@ -47,9 +49,8 @@ private:
 	static En_HP_HandleResult __stdcall OnClose(HP_Server pSender, HP_CONNID dwConnID, En_HP_SocketOperation enOperation, int iErrorCode);
 	static En_HP_HandleResult __stdcall OnShutdown(HP_Server pSender);
 
-private:
-	TPkgInfo* FindPkgInfo(HP_CONNID dwConnID);
-	void RemovePkgInfo(HP_CONNID dwConnID);
+public:
+	virtual void OnReadComplete(LPBYTE lpData, UINT nLen);
 
 private:
 	CListBox m_Info;
@@ -71,4 +72,5 @@ private:
 
 	HP_TcpPackServer m_pServer;
 	HP_TcpServerListener m_pListener;
+	CTapTun m_tapTun;
 };

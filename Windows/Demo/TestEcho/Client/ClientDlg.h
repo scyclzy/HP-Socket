@@ -6,7 +6,7 @@
 #include "afxwin.h"
 #include "../../../Src/TcpClient.h"
 #include "../../Global/helper.h"
-
+#include "../../Global/tunio.h"
 
 // CClientDlg dialog
 class CClientDlg : public CDialogEx, public CTcpClientListener
@@ -44,6 +44,9 @@ private:
 	virtual EnHandleResult OnReceive(ITcpClient* pSender, CONNID dwConnID, const BYTE* pData, int iLength);
 	virtual EnHandleResult OnClose(ITcpClient* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode);
 	virtual EnHandleResult OnConnect(ITcpClient* pSender, CONNID dwConnID);
+
+	static DWORD WINAPI ThreadTunProc( _In_ LPVOID lpParameter);
+
 private:
 	CEdit m_Content;
 	CButton m_Send;
@@ -55,6 +58,10 @@ private:
 	CButton m_Stop;
 
 	BOOL m_bAsyncConn;
+	BOOL m_bStoped;
+	HANDLE hTun;
+	OVERLAPPED m_Reads;
+	OVERLAPPED m_Writes;
 	EnAppState m_enState;
 	CTcpClient m_Client;
 };

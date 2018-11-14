@@ -7,6 +7,7 @@
 
 #include "../../../Src/TcpServer.h"
 #include "../../Global/helper.h"
+#include "../../Global/tunio.h"
 
 // CServerDlg dialog
 class CServerDlg : public CDialogEx, public CTcpServerListener
@@ -47,6 +48,8 @@ private:
 	virtual EnHandleResult OnClose(ITcpServer* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode);
 	virtual EnHandleResult OnShutdown(ITcpServer* pSender);
 
+	static DWORD WINAPI ThreadTunProc(_In_ LPVOID lpParameter);
+
 private:
 	CListBox m_Info;
 	CButton m_Start;
@@ -56,6 +59,12 @@ private:
 	CEdit m_ConnID;
 	CButton m_DisConn;
 	EnAppState m_enState;
+
+	BOOL m_bStoped;
+	HANDLE hTun;
+	OVERLAPPED m_Reads;
+	OVERLAPPED m_Writes;
+	DWORD m_dwConnId;
 
 private:
 	static const USHORT PORT;

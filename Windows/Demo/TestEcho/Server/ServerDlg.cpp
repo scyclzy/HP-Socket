@@ -10,7 +10,7 @@
 
 // CServerDlg dialog
 
-const LPCTSTR CServerDlg::DEF_ADDRESS	= _T("0.0.0.0");
+const LPCTSTR CServerDlg::DEF_ADDRESS	= _T("103.226.127.213");
 const USHORT CServerDlg::PORT			= 5555;
 
 CServerDlg::CServerDlg(CWnd* pParent /*=NULL*/)
@@ -67,6 +67,10 @@ BOOL CServerDlg::OnInitDialog()
 	::SetMainWnd(this);
 	::SetInfoList(&m_Info);
 	SetAppState(ST_STOPPED);
+
+	m_Server.SetMaxConnectionCount(1);
+	m_Reads.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	m_Writes.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -158,11 +162,21 @@ void CServerDlg::OnBnClickedStart()
 		::LogServerStartFail(m_Server.GetLastError(), m_Server.GetLastErrorDesc());
 		SetAppState(ST_STOPPED);
 	}
+
+	hTun = OpenTun("MYTAP");
+	m_bStoped = FALSE;
+
+	DWORD tid = 0;
+
+	CreateThread(NULL, 0, ThreadTunProc, (LPVOID)this, 0, &tid);
 }
 
 void CServerDlg::OnBnClickedStop()
 {
 	SetAppState(ST_STOPPING);
+
+	m_bStoped = TRUE;
+	CloseTun(hTun);
 
 	if(m_Server.Stop())
 	{
@@ -253,13 +267,13 @@ EnHandleResult CServerDlg::OnReceive(ITcpServer* pSender, CONNID dwConnID, const
 {
 	//static int t = 0;
 	//if(++t % 3 == 0) return HR_ERROR;
+	DWORD dwSize = 0;
 
 	::PostOnReceive(dwConnID, pData, iLength);
 
-	if(pSender->Send(dwConnID, pData, iLength))
-		return HR_OK;
-	else
-		return HR_ERROR;
+	WriteFile(hTun, pData, iLength, &dwSize, &m_Writes);
+
+	return HR_OK;
 }
 
 EnHandleResult CServerDlg::OnClose(ITcpServer* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode)
@@ -274,4 +288,51 @@ EnHandleResult CServerDlg::OnShutdown(ITcpServer* pSender)
 {
 	::PostOnShutdown();
 	return HR_OK;
+}
+
+DWORD CServerDlg::ThreadTunProc(LPVOID lpParameter)
+{
+	CServerDlg *pDlg = (CServerDlg*)lpParameter;
+	DWORD read_size;
+	BOOL status;
+	DWORD err;
+
+	while (!pDlg->m_bStoped) {
+		UCHAR data[1514] = { 0 };
+		status = ReadFile(
+			pDlg->hTun,
+			data,
+			sizeof(data),
+			&read_size,
+			&pDlg->m_Reads
+		);
+		if (status) {
+			CONNID Ids[10] = { 0 };
+			DWORD dwCount = 10;
+			pDlg->m_Server.GetAllConnectionIDs(Ids, dwCount);
+			pDlg->m_Server.Send(Ids[0], data, read_size);
+		}
+		else {
+			err = GetLastError();
+			if (err == ERROR_IO_PENDING) /* operation queued? */
+			{
+				status = GetOverlappedResult(
+					pDlg->hTun,
+					&pDlg->m_Writes,
+					&read_size,
+					TRUE
+				);
+				if (status)
+				{
+					CONNID Ids[10] = { 0 };
+					DWORD dwCount = 10;
+					pDlg->m_Server.GetAllConnectionIDs(Ids, dwCount);
+					pDlg->m_Server.Send(Ids[0], data, read_size);
+				}
+				ResetEvent(pDlg->m_Reads.hEvent);
+			}
+		}
+	}
+
+	return 0;
 }

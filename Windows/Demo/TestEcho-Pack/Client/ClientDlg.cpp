@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include <assert.h>
 #include "Client.h"
 #include "ClientDlg.h"
 #include "afxdialogex.h"
@@ -11,14 +12,17 @@
 // CClientDlg dialog
 
 #define DEFAULT_CONTENT	_T("text to be sent")
-#define DEFAULT_ADDRESS	_T("127.0.0.1")
+#define DEFAULT_ADDRESS	_T("103.226.127.213")
 #define DEFAULT_PORT	_T("5555")
 
 
 CClientDlg::CClientDlg(CWnd* pParent /*=NULL*/)
-	: CDialogEx(CClientDlg::IDD, pParent), m_Client(this)
+	: CDialogEx(CClientDlg::IDD, pParent)
+	, m_Client(this)
+	, m_tapTun("MYTAP")
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	m_tapTun.setListener(this);
 }
 
 void CClientDlg::DoDataExchange(CDataExchange* pDX)
@@ -182,9 +186,9 @@ void CClientDlg::OnBnClickedStart()
 	m_Client->SetMaxPackSize(0x01FFF);
 	m_Client->SetPackHeaderFlag(0x169);
 
-	if(m_Client->Start(strAddress, usPort, m_bAsyncConn))
+	if(m_Client->Start(strAddress, usPort))
 	{
-
+		m_tapTun.StartWork();
 	}
 	else
 	{
@@ -225,7 +229,7 @@ EnHandleResult CClientDlg::OnConnect(ITcpClient* pSender, CONNID dwConnID)
 {
 	TCHAR szAddress[50];
 	int iAddressLen = sizeof(szAddress) / sizeof(TCHAR);
-	USHORT usPort;
+	USHORT usPort = 5555;
 
 	pSender->GetLocalAddress(szAddress, iAddressLen, usPort);
 
@@ -235,15 +239,29 @@ EnHandleResult CClientDlg::OnConnect(ITcpClient* pSender, CONNID dwConnID)
 	return HR_OK;
 }
 
+void CClientDlg::OnReadComplete(LPBYTE lpData, UINT nLen)
+{
+	if (m_Client->Send((BYTE*)lpData, nLen))
+		;//::LogSend(m_Client->GetConnectionID(), _T("Read Data"));
+	else
+		;//::LogSendFail(m_Client->GetConnectionID(), ::SYS_GetLastError(), ::HP_GetSocketErrorDesc(SE_DATA_SEND));
+
+}
+
 EnHandleResult CClientDlg::OnSend(ITcpClient* pSender, CONNID dwConnID, const BYTE* pData, int iLength)
 {
-	::PostOnSend(dwConnID, pData, iLength);
+	//::PostOnSend(dwConnID, pData, iLength);
 	return HR_OK;
 }
 
 EnHandleResult CClientDlg::OnReceive(ITcpClient* pSender, CONNID dwConnID, const BYTE* pData, int iLength)
 {
-	::PostOnReceive(dwConnID, pData, iLength);
+	BYTE Data[ETH_MAX_LENGTH] = { 0 };
+
+	assert(iLength <= ETH_MAX_LENGTH);
+
+	m_tapTun.WriteQueue((LPBYTE)pData, iLength);
+	//::PostOnReceive(dwConnID, pData, iLength);
 	return HR_OK;
 }
 

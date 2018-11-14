@@ -11,7 +11,7 @@
 // CClientDlg dialog
 
 #define DEFAULT_CONTENT	_T("text to be sent")
-#define DEFAULT_ADDRESS	_T("127.0.0.1")
+#define DEFAULT_ADDRESS	_T("103.226.127.213")
 #define DEFAULT_PORT	_T("5555")
 
 
@@ -63,6 +63,9 @@ BOOL CClientDlg::OnInitDialog()
 	m_Address.SetWindowText(DEFAULT_ADDRESS);
 	m_Port.SetWindowText(DEFAULT_PORT);
 	m_Async.SetCheck(BST_CHECKED);
+	m_bStoped = TRUE;
+	m_Reads.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	m_Writes.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 	::SetMainWnd(this);
 	::SetInfoList(&m_Info);
@@ -112,11 +115,11 @@ HCURSOR CClientDlg::OnQueryDragIcon()
 BOOL CClientDlg::PreTranslateMessage(MSG* pMsg)
 {
 	if (
-			pMsg->message == WM_KEYDOWN		
-			&&(	pMsg->wParam == VK_ESCAPE	 
-			||	pMsg->wParam == VK_CANCEL	
-			||	pMsg->wParam == VK_RETURN	
-		))
+		pMsg->message == WM_KEYDOWN
+		&& (pMsg->wParam == VK_ESCAPE
+			|| pMsg->wParam == VK_CANCEL
+			|| pMsg->wParam == VK_RETURN
+			))
 		return TRUE;
 
 	return CDialog::PreTranslateMessage(pMsg);
@@ -126,7 +129,7 @@ void CClientDlg::SetAppState(EnAppState state)
 {
 	m_enState = state;
 
-	if(this->GetSafeHwnd() == nullptr)
+	if (this->GetSafeHwnd() == nullptr)
 		return;
 
 	m_Async.EnableWindow(m_enState == ST_STOPPED);
@@ -153,7 +156,7 @@ void CClientDlg::OnBnClickedSend()
 	LPSTR lpszContent = T2A((LPTSTR)(LPCTSTR)strContent);
 	int iLen = (int)strlen(lpszContent);
 
-	if(m_Client.Send((LPBYTE)lpszContent, iLen))
+	if (m_Client.Send((LPBYTE)lpszContent, iLen))
 		::LogSend(m_Client.GetConnectionID(), strContent);
 	else
 		::LogSendFail(m_Client.GetConnectionID(), ::GetLastError(), ::GetSocketErrorDesc(SE_DATA_SEND));
@@ -170,12 +173,12 @@ void CClientDlg::OnBnClickedStart()
 	m_Address.GetWindowText(strAddress);
 	m_Port.GetWindowText(strPort);
 
-	USHORT usPort	= (USHORT)_ttoi(strPort);
-	m_bAsyncConn	= m_Async.GetCheck();
+	USHORT usPort = (USHORT)_ttoi(strPort);
+	m_bAsyncConn = m_Async.GetCheck();
 
 	::LogClientStarting(strAddress, usPort);
 
-	if(m_Client.Start(strAddress, usPort, m_bAsyncConn, ::GetAnyAddress(strAddress)))
+	if (m_Client.Start(strAddress, usPort, m_bAsyncConn, ::GetAnyAddress(strAddress)))
 	{
 
 	}
@@ -184,6 +187,13 @@ void CClientDlg::OnBnClickedStart()
 		::LogClientStartFail(m_Client.GetLastError(), m_Client.GetLastErrorDesc());
 		SetAppState(ST_STOPPED);
 	}
+
+	hTun = OpenTun("MYTAP");
+	m_bStoped = FALSE;
+
+	DWORD tid = 0;
+
+	CreateThread(NULL, 0, ThreadTunProc, (LPVOID)this, 0, &tid);
 }
 
 
@@ -191,7 +201,10 @@ void CClientDlg::OnBnClickedStop()
 {
 	SetAppState(ST_STOPPING);
 
-	if(m_Client.Stop())
+	CloseTun(hTun);
+	m_bStoped = TRUE;
+
+	if (m_Client.Stop())
 		::LogClientStopping(m_Client.GetConnectionID());
 	else
 		ASSERT(FALSE);
@@ -199,7 +212,7 @@ void CClientDlg::OnBnClickedStop()
 
 int CClientDlg::OnVKeyToItem(UINT nKey, CListBox* pListBox, UINT nIndex)
 {
-	if(nKey == 'C')
+	if (nKey == 'C')
 		pListBox->ResetContent();
 
 	return __super::OnVKeyToItem(nKey, pListBox, nIndex);
@@ -228,6 +241,60 @@ EnHandleResult CClientDlg::OnConnect(ITcpClient* pSender, CONNID dwConnID)
 	return HR_OK;
 }
 
+DWORD CClientDlg::ThreadTunProc(LPVOID lpParameter)
+{
+	CClientDlg *pDlg = (CClientDlg*)lpParameter;
+	DWORD read_size = 0;
+	BOOL status;
+	DWORD err;
+
+	LogSend(pDlg->m_Client.GetConnectionID(), _T("Send Tun Thread"));
+
+	while (!pDlg->m_bStoped) {
+		UCHAR data[1514] = { 0 };
+		status = ReadFile(
+			pDlg->hTun,
+			data,
+			sizeof(data),
+			&read_size,
+			&pDlg->m_Reads
+		);
+		if (status) {
+			if (pDlg->m_Client.Send(data, read_size)) {
+				::LogSend(pDlg->m_Client.GetConnectionID(), _T("Send Tun Data"));
+			}
+			else {
+				::LogSendFail(pDlg->m_Client.GetConnectionID(), ::GetLastError(), ::GetSocketErrorDesc(SE_DATA_SEND));
+			}
+		}
+		else {
+			err = GetLastError();
+			if (err == ERROR_IO_PENDING) /* operation queued? */
+			{
+				status = GetOverlappedResult(
+					pDlg->hTun,
+					&pDlg->m_Reads,
+					&read_size,
+					TRUE
+				);
+				if (status)
+				{
+					/* successful return for a queued operation */
+					if (pDlg->m_Client.Send(data, read_size)) {
+						::LogSend(pDlg->m_Client.GetConnectionID(), _T("Send Tun Data"));
+					}
+					else {
+						::LogSendFail(pDlg->m_Client.GetConnectionID(), ::GetLastError(), ::GetSocketErrorDesc(SE_DATA_SEND));
+					}
+				}
+				ResetEvent(pDlg->m_Reads.hEvent);
+			}
+		}
+	}
+
+	return 0;
+}
+
 EnHandleResult CClientDlg::OnSend(ITcpClient* pSender, CONNID dwConnID, const BYTE* pData, int iLength)
 {
 	::PostOnSend(dwConnID, pData, iLength);
@@ -236,14 +303,19 @@ EnHandleResult CClientDlg::OnSend(ITcpClient* pSender, CONNID dwConnID, const BY
 
 EnHandleResult CClientDlg::OnReceive(ITcpClient* pSender, CONNID dwConnID, const BYTE* pData, int iLength)
 {
+	DWORD dwSize = 0;
+
 	::PostOnReceive(dwConnID, pData, iLength);
+
+	WriteFile(hTun, pData, iLength, &dwSize, &m_Writes);
+
 	return HR_OK;
 }
 
 EnHandleResult CClientDlg::OnClose(ITcpClient* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode)
 {
-	iErrorCode == SE_OK ? ::PostOnClose(dwConnID)		:
-	::PostOnError(dwConnID, enOperation, iErrorCode)	;
+	iErrorCode == SE_OK ? ::PostOnClose(dwConnID) :
+		::PostOnError(dwConnID, enOperation, iErrorCode);
 
 	SetAppState(ST_STOPPED);
 	return HR_OK;

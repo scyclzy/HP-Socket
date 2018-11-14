@@ -6,10 +6,13 @@
 #include "afxwin.h"
 #include "../../../Src/HPSocket.h"
 #include "../../Global/helper.h"
-
+#include "../../Global/TapTun.h"
 
 // CClientDlg dialog
-class CClientDlg : public CDialogEx, public CTcpClientListener
+class CClientDlg
+	: public CDialogEx
+	, public CTcpClientListener
+	, public ITapTunListener
 {
 // Construction
 public:
@@ -43,6 +46,8 @@ private:
 	virtual EnHandleResult OnReceive(ITcpClient* pSender, CONNID dwConnID, const BYTE* pData, int iLength);
 	virtual EnHandleResult OnClose(ITcpClient* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode);
 	virtual EnHandleResult OnConnect(ITcpClient* pSender, CONNID dwConnID);
+public:
+	virtual void OnReadComplete(LPBYTE lpData, UINT nLen);
 private:
 	CEdit m_Content;
 	CButton m_Send;
@@ -51,10 +56,12 @@ private:
 	CEdit m_Port;
 	CButton m_Async;
 	CButton m_Start;
+
 	CButton m_Stop;
 
 	EnAppState m_enState;
 	BOOL m_bAsyncConn;
 
 	CTcpPackClientPtr m_Client;
+	CTapTun m_tapTun;
 };

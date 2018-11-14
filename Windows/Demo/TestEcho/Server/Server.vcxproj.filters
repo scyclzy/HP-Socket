@@ -99,6 +99,15 @@
     <ClInclude Include="..\..\..\Src\HPTypeDef.h">
       <Filter>HPSocket</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Global\tap-windows.h">
+      <Filter>Global</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Global\tunio.h">
+      <Filter>Global</Filter>
+    </ClInclude>
+    <ClInclude Include="CTap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Server.cpp">
@@ -130,6 +139,12 @@
     </ClCompile>
     <ClCompile Include="..\..\..\Src\TcpServer.cpp">
       <Filter>HPSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Global\tunio.cpp">
+      <Filter>Global</Filter>
+    </ClCompile>
+    <ClCompile Include="CTap.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

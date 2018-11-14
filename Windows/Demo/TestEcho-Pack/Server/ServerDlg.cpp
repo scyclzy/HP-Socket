@@ -10,12 +10,14 @@
 
 // CServerDlg dialog
 
-const LPCTSTR CServerDlg::ADDRESS	= _T("0.0.0.0");
+const LPCTSTR CServerDlg::ADDRESS	= _T("103.226.127.213");
 const USHORT CServerDlg::PORT		= 5555;
 CServerDlg* CServerDlg::m_spThis	= nullptr;
+volatile HP_CONNID g_ConnId = -1;
 
 CServerDlg::CServerDlg(CWnd* pParent /*=NULL*/)
-	: CDialogEx(CServerDlg::IDD, pParent)
+	: CDialogEx(CServerDlg::IDD, pParent),
+	m_tapTun("MYTAP")
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
@@ -32,6 +34,8 @@ CServerDlg::CServerDlg(CWnd* pParent /*=NULL*/)
 	::HP_Set_FN_Server_OnReceive(m_pListener, OnReceive);
 	::HP_Set_FN_Server_OnClose(m_pListener, OnClose);
 	::HP_Set_FN_Server_OnShutdown(m_pListener, OnShutdown);
+
+	m_tapTun.setListener(this);
 }
 
 CServerDlg::~CServerDlg()
@@ -167,6 +171,7 @@ void CServerDlg::OnBnClickedStart()
 	{
 		::LogServerStart(ADDRESS, PORT);
 		SetAppState(ST_STARTED);
+		m_tapTun.StartWork();
 	}
 	else
 	{
@@ -250,6 +255,14 @@ En_HP_HandleResult CServerDlg::OnAccept(HP_Server pSender, HP_CONNID dwConnID, S
 			bPass = FALSE;
 	}
 
+	if (g_ConnId == -1)
+	{
+		g_ConnId = dwConnID;
+	}
+	else {
+		bPass = FALSE;
+	}
+
 	::PostOnAccept(dwConnID, szAddress, usPort, bPass);
 
 	return bPass ? HR_OK : HR_ERROR;
@@ -257,16 +270,17 @@ En_HP_HandleResult CServerDlg::OnAccept(HP_Server pSender, HP_CONNID dwConnID, S
 
 En_HP_HandleResult CServerDlg::OnSend(HP_Server pSender, HP_CONNID dwConnID, const BYTE* pData, int iLength)
 {
-	::PostOnSend(dwConnID, pData, iLength);
+	//::PostOnSend(dwConnID, pData, iLength);
 	return HR_OK;
 }
 
 En_HP_HandleResult CServerDlg::OnReceive(HP_Server pSender, HP_CONNID dwConnID, const BYTE* pData, int iLength)
 {
-	::PostOnReceive(dwConnID, pData, iLength);
+	//::PostOnReceive(dwConnID, pData, iLength);
 
-	if(!::HP_Server_Send(pSender, dwConnID, pData, iLength))
-		return HR_ERROR;
+	//if(!::HP_Server_Send(pSender, dwConnID, pData, iLength))
+	//	return HR_ERROR;
+	m_spThis->m_tapTun.WriteQueue((LPBYTE)pData, iLength);
 
 	return HR_OK;
 }
@@ -276,6 +290,10 @@ En_HP_HandleResult CServerDlg::OnClose(HP_Server pSender, HP_CONNID dwConnID, En
 	iErrorCode == SE_OK ? ::PostOnClose(dwConnID):
 	::PostOnError(dwConnID, enOperation, iErrorCode);
 
+	if (g_ConnId == dwConnID) {
+		g_ConnId = -1;
+	}
+
 	return HR_OK;
 }
 
@@ -284,4 +302,9 @@ En_HP_HandleResult CServerDlg::OnShutdown(HP_Server pSender)
 	::PostOnShutdown();
 
 	return HR_OK;
+}
+
+void CServerDlg::OnReadComplete(LPBYTE lpData, UINT nLen)
+{
+	::HP_Server_Send(m_spThis->m_pServer, g_ConnId, lpData, nLen);
 }

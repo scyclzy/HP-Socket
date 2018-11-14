@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27428.2015
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Server", "Server\Server.vcxproj", "{5A2EE763-53B1-462E-AE9F-7CC58436C877}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Client", "Client\Client.vcxproj", "{E3791685-9CC8-426B-811C-FEBA775F87E7}"
@@ -14,15 +16,22 @@ Global
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{5A2EE763-53B1-462E-AE9F-7CC58436C877}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5A2EE763-53B1-462E-AE9F-7CC58436C877}.Debug|Win32.Build.0 = Debug|Win32
 		{5A2EE763-53B1-462E-AE9F-7CC58436C877}.Debug|x64.ActiveCfg = Debug|x64
 		{5A2EE763-53B1-462E-AE9F-7CC58436C877}.Release|Win32.ActiveCfg = Release|Win32
+		{5A2EE763-53B1-462E-AE9F-7CC58436C877}.Release|Win32.Build.0 = Release|Win32
 		{5A2EE763-53B1-462E-AE9F-7CC58436C877}.Release|x64.ActiveCfg = Release|x64
 		{E3791685-9CC8-426B-811C-FEBA775F87E7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E3791685-9CC8-426B-811C-FEBA775F87E7}.Debug|Win32.Build.0 = Debug|Win32
 		{E3791685-9CC8-426B-811C-FEBA775F87E7}.Debug|x64.ActiveCfg = Debug|x64
 		{E3791685-9CC8-426B-811C-FEBA775F87E7}.Release|Win32.ActiveCfg = Release|Win32
+		{E3791685-9CC8-426B-811C-FEBA775F87E7}.Release|Win32.Build.0 = Release|Win32
 		{E3791685-9CC8-426B-811C-FEBA775F87E7}.Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E1B8835D-8FCA-4718-BBFC-16305C368909}
 	EndGlobalSection
 EndGlobal
